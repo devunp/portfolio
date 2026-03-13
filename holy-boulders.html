@@ -97,27 +97,6 @@
       50%       { opacity: 0; }
     }
 
-    #fly-btn {
-      position: fixed;
-      bottom: 0;
-      right: 0;
-      padding: 4px 8px;
-      font-family: "Courier New", monospace;
-      font-size: 11px;
-      color: #1f9d55;
-      background: #050505;
-      border: none;
-      border-top: 1px solid #1f9d55;
-      border-left: 1px solid #1f9d55;
-      letter-spacing: 0.05em;
-      z-index: 3;
-      cursor: pointer;
-    }
-    #fly-btn:hover {
-      color: #050505;
-      background: #1f9d55;
-    }
-
   </style>
 </head>
 <body>
@@ -126,8 +105,6 @@
   <div id="controls-hint">drag · scroll · right-drag pan</div>
   <div id="terrain-label">holy boulders / pomona, il / shawnee national forest</div>
   <div id="terrain-status">[ procedural ]</div>
-<button id="fly-btn">[ fly ]</button>
-
   <script type="importmap">
     {
       "imports": {
@@ -361,52 +338,7 @@
       scene.add(trailGroup);
     }
 
-    // ── Camera fly-through ───────────────────────────────────────────────────
-    const FLY_DURATION = 12000;
-
-    const flyCamCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3( 0,   8,   9),   // wide south overview
-      new THREE.Vector3(-3,   3,   5),   // descend toward pin cluster
-      new THREE.Vector3(-2.5, 1.4, 0.5), // low pass over rocks
-      new THREE.Vector3(-2,   1.2,-2),   // skim north
-      new THREE.Vector3( 0.5, 2,  -4),   // sweep east-north
-      new THREE.Vector3( 4,   4,  -1),   // high east flank
-      new THREE.Vector3( 0,   7,   7),   // return overview
-    ]);
-
-    const flyTgtCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3( 0,   0,  0),
-      new THREE.Vector3(-2,   0.2,-1),
-      new THREE.Vector3(-2,   0.3,-2.5),
-      new THREE.Vector3(-0.5, 0.2,-2),
-      new THREE.Vector3(-1,   0,  -1),
-      new THREE.Vector3( 0,   0,   0),
-      new THREE.Vector3( 0,   0,   0),
-    ]);
-
-    let flyActive    = false;
-    let flyStartTime = 0;
-
-    const flyBtn = document.getElementById('fly-btn');
-
-    function startFly() {
-      flyActive    = true;
-      flyStartTime = performance.now();
-      controls.enabled  = false;
-      controls.autoRotate = false;
-      flyBtn.textContent = '[ stop ]';
-    }
-
-    function stopFly() {
-      flyActive         = false;
-      controls.enabled  = true;
-      flyBtn.textContent = '[ fly ]';
-    }
-
-    flyBtn.addEventListener('click', () => flyActive ? stopFly() : startFly());
-    // ─────────────────────────────────────────────────────────────────────────
-
-buildPins();
+    buildPins();
     buildTrails();
 
     (function tryHeightmap() {
@@ -445,12 +377,6 @@ buildPins();
 
     function animate() {
       requestAnimationFrame(animate);
-      if (flyActive) {
-        const t = Math.min((performance.now() - flyStartTime) / FLY_DURATION, 1);
-        camera.position.copy(flyCamCurve.getPoint(t));
-        camera.lookAt(flyTgtCurve.getPoint(t));
-        if (t >= 1) stopFly();
-      }
       controls.update();
       if (pinLabelData.length) updatePinLabels();
       renderer.render(scene, camera);
