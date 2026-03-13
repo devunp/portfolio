@@ -117,6 +117,27 @@
       color: #050505;
       background: #1f9d55;
     }
+
+    #rec-btn {
+      position: fixed;
+      bottom: 26px;
+      right: 0;
+      padding: 4px 8px;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      color: #ff2200;
+      background: #050505;
+      border: none;
+      border-top: 1px solid #ff2200;
+      border-left: 1px solid #ff2200;
+      letter-spacing: 0.05em;
+      z-index: 3;
+      cursor: pointer;
+    }
+    #rec-btn:hover {
+      color: #050505;
+      background: #ff2200;
+    }
   </style>
 </head>
 <body>
@@ -125,6 +146,7 @@
   <div id="controls-hint">drag · scroll · right-drag pan</div>
   <div id="terrain-label">holy boulders / pomona, il / shawnee national forest</div>
   <div id="terrain-status">[ procedural ]</div>
+  <button id="rec-btn">[ rec ]</button>
   <button id="fly-btn">[ fly ]</button>
 
   <script type="importmap">
@@ -182,20 +204,20 @@
       { id: '07', label: 'sinkhole',lat: 37.61516, lon: -89.40749 },
       { id: '08', label: 'brown cow',      lat: 37.61524, lon: -89.41119 },
       { id: '09', label: 'hagler roof',        lat: 37.62792, lon: -89.40566 },
-      { id: '10', label: 'hellhole',      lat: 37.6178,  lon: -89.40485 },
+      { id: '10', label: 'goldeneye',      lat: 37.6178,  lon: -89.40485 },
       { id: '11', label: 'star wars',      lat: 37.61689,  lon: -89.41299 }
     ];
 
     const canvas   = document.getElementById('terrain-canvas');
     const statusEl = document.getElementById('terrain-status');
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setClearColor(BG_COLOR, 1);
 
     const scene  = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 6, 10);
+    camera.position.set(0, 6, 15);
     camera.lookAt(0, 0, 0);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -403,6 +425,37 @@
     }
 
     flyBtn.addEventListener('click', () => flyActive ? stopFly() : startFly());
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── MediaRecorder export ─────────────────────────────────────────────────
+    // autoRotateSpeed=3 → one full orbit = 60000/3 = 20s
+    const ROTATION_MS = Math.round(60000 / controls.autoRotateSpeed);
+
+    const recBtn = document.getElementById('rec-btn');
+    let mediaRecorder = null;
+
+    function startRec() {
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+      const chunks = [];
+      mediaRecorder = new MediaRecorder(canvas.captureStream(60), { mimeType });
+      mediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(chunks, { type: mimeType }));
+        a.download = 'holy-boulders.webm';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        recBtn.textContent = '[ rec ]';
+        mediaRecorder = null;
+      };
+      mediaRecorder.start();
+      controls.autoRotate = true;
+      recBtn.textContent = '[ stop ]';
+      setTimeout(() => { if (mediaRecorder) mediaRecorder.stop(); }, ROTATION_MS);
+    }
+
+    recBtn.addEventListener('click', () => mediaRecorder ? mediaRecorder.stop() : startRec());
     // ─────────────────────────────────────────────────────────────────────────
 
     buildPins();
