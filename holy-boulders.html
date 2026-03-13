@@ -138,7 +138,10 @@
 
   <script type="module">
     import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { OrbitControls }  from 'three/addons/controls/OrbitControls.js';
+    import { Line2 }          from 'three/addons/lines/Line2.js';
+    import { LineMaterial }   from 'three/addons/lines/LineMaterial.js';
+    import { LineGeometry }   from 'three/addons/lines/LineGeometry.js';
 
     const HEIGHTMAP_SRC = 'assets/holy-boulders-heightmap.png';
     const SEGMENTS      = 140;
@@ -150,6 +153,7 @@
     const TRAIL_MANIFEST = 'assets/gpx/manifest.json';
     const TRAIL_COLOR    = 0xff2200;
     const TRAIL_LIFT     = 0;  // float above terrain surface
+    const TRAIL_WIDTH    = 2;  // pixels — increase for a thicker trail line
 
     const BOUNDS = {
       lon_min: -89.4270,
@@ -171,14 +175,15 @@
     const PINS = [
       { id: '01', label: 'the mollusk',    lat: 37.61563, lon: -89.41242 },
       { id: '02', label: 'best in show',   lat: 37.6104,  lon: -89.40825 },
-      { id: '03', label: 'enlightenment',  lat: 37.61699, lon: -89.41109 },
-      { id: '04', label: 'cain and ankle', lat: 37.61327, lon: -89.41019 },
+      { id: '03', label: 'illuminati',  lat: 37.61699, lon: -89.41109 },
+      { id: '04', label: 'red sea', lat: 37.61327, lon: -89.41019 },
       { id: '05', label: 'open gates',     lat: 37.61992, lon: -89.41143 },
       { id: '06', label: 'bioterrorism',   lat: 37.61886, lon: -89.41456 },
-      { id: '07', label: 'hot rats direct',lat: 37.61516, lon: -89.40749 },
+      { id: '07', label: 'sinkhole',lat: 37.61516, lon: -89.40749 },
       { id: '08', label: 'brown cow',      lat: 37.61524, lon: -89.41119 },
-      { id: '09', label: 'hellboy',        lat: 37.62792, lon: -89.40566 },
-      { id: '10', label: 'goldeneye',      lat: 37.6178,  lon: -89.40485 }
+      { id: '09', label: 'hagler roof',        lat: 37.62792, lon: -89.40566 },
+      { id: '10', label: 'hellhole',      lat: 37.6178,  lon: -89.40485 },
+      { id: '11', label: 'star wars',      lat: 37.61689,  lon: -89.41299 }
     ];
 
     const canvas   = document.getElementById('terrain-canvas');
@@ -196,7 +201,7 @@
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping    = false;
     controls.autoRotate       = true;
-    controls.autoRotateSpeed  = 1.2;
+    controls.autoRotateSpeed  = 3;
     controls.minDistance      = 3;
     controls.maxDistance      = 25;
     controls.maxPolarAngle    = Math.PI * 0.72;
@@ -322,7 +327,11 @@
       } catch (e) { return; }
       if (trailGroup) scene.remove(trailGroup);
       trailGroup = new THREE.Group();
-      const trailMat = new THREE.LineBasicMaterial({ color: TRAIL_COLOR });
+      const trailMat = new LineMaterial({
+        color: TRAIL_COLOR,
+        linewidth: TRAIL_WIDTH,
+        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+      });
       await Promise.all(manifest.map(async ({ file }) => {
         let xml;
         try {
@@ -330,20 +339,22 @@
           xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
         } catch (e) { return; }
         xml.querySelectorAll('trkseg').forEach(seg => {
-          const pts = [];
+          const flat = [];
           seg.querySelectorAll('trkpt').forEach(pt => {
             const lat = parseFloat(pt.getAttribute('lat'));
             const lon = parseFloat(pt.getAttribute('lon'));
             const uv  = latlonToUV(lat, lon);
             if (!uv) return;
-            pts.push(new THREE.Vector3(
+            flat.push(
               (uv.u - 0.5) * PLANE_SIZE,
               sampleHeight(uv.u, uv.v) + TRAIL_LIFT,
               (uv.v - 0.5) * PLANE_SIZE
-            ));
+            );
           });
-          if (pts.length < 2) return;
-          trailGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), trailMat));
+          if (flat.length < 6) return;
+          const lineGeo = new LineGeometry();
+          lineGeo.setPositions(flat);
+          trailGroup.add(new Line2(lineGeo, trailMat));
         });
       }));
       scene.add(trailGroup);
@@ -420,6 +431,13 @@
       renderer.setSize(window.innerWidth, window.innerHeight, false);
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
+      if (trailGroup) {
+        trailGroup.traverse(obj => {
+          if (obj.material?.isLineMaterial) {
+            obj.material.resolution.set(window.innerWidth, window.innerHeight);
+          }
+        });
+      }
     }
     resize();
     window.addEventListener('resize', resize);
